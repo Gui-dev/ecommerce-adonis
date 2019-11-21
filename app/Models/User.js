@@ -7,6 +7,7 @@ const Model = use('Model')
 const Hash = use('Hash')
 
 class User extends Model {
+
   static boot () {
     super.boot()
 
@@ -19,6 +20,14 @@ class User extends Model {
         userInstance.password = await Hash.make(userInstance.password)
       }
     })
+  }
+
+  static get traits() {
+
+    return [
+      '@provider:Adonis/Acl/HasRole',
+      '@provider:Adonis/Acl/HasPermission'
+    ]
   }
 
   /**
