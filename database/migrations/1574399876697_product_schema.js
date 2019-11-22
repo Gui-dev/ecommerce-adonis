@@ -34,12 +34,32 @@ class ProductSchema extends Schema {
         .references( 'id' )
         .inTable( 'products' )
         .onDelete( 'CASCADE' )
+      table.timestamps()
+    } )
+
+    this.create( 'category_product', table => {
+
+      table.increments()
+      table.integer( 'product_id' ).unsigned()
+      table.integer( 'category_id' ).unsigned()
+      table
+        .foreign( 'product_id' )
+        .references( 'id' )
+        .inTable( 'products' )
+        .onDelete( 'CASCADE' )
+      table
+        .foreign( 'category_id' )
+        .references( 'id' )
+        .inTable( 'categories' )
+        .onDelete( 'CASCADE' )
+      table.timestamps()
     } )
   }
 
   down () {
-    this.drop('products')
+    this.drop( 'category_product' )
     this.drop( 'image_product' )
+    this.drop('products')
   }
 }
 
