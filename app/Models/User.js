@@ -22,6 +22,14 @@ class User extends Model {
     })
   }
 
+  /**
+   * Oculta os campos definidos no retorno das queries no DB
+   */
+  static get hidden() {
+
+    return [ 'password' ]
+  }
+
   static get traits() {
 
     return [
@@ -43,6 +51,17 @@ class User extends Model {
   tokens () {
     return this.hasMany('App/Models/Token')
   }
+
+  image() {
+
+    return this.belongsTo( 'App/Models/Image' )
+  }
+
+  coupons() {
+
+    return this.belongsToMany( 'App/Models/Coupon' )
+  }
+
 }
 
 module.exports = User
