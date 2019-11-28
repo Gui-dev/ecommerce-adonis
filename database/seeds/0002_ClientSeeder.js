@@ -19,7 +19,20 @@ class ClientSeeder {
   async run () {
 
     const role = await Role.findBy( 'slug', 'client' )
-    const Clients = await Factory.
+    const clients = await Factory.model( 'App/Models/User' ).createMany( 30 )
+    await Promise.all( clients.map( async client => {
+      await client.roles().attach( [ role.id ] )
+    } ) )
+
+    const user = await User.create( {
+      name: 'Gui',
+      surname: 'Silva',
+      email: 'gui@fsocietybrasil.org',
+      password: 'secret'
+    } )
+
+    const adminRole = await Role.findBy( 'slug', 'admin' )
+    await user.roles().attach( [ role.id ] )
   }
 }
 
