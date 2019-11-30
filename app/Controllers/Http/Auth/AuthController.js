@@ -37,7 +37,7 @@ class AuthController {
 
       const data = await auth.withRefreshToken().attempt( email, password )
 
-      return response.send( { data } )
+      return response.status( 200 ).send( { data } )
     } catch (error) {
 
       return response.status( 401 ).send( {
@@ -48,7 +48,23 @@ class AuthController {
 
   async refresh( { request, response, auth } ) {
 
+    let refresh_token = request.input( 'refresh_token' )
 
+    if( !refresh_token ) {
+
+      refresh_token = request.header( 'refresh_token' )
+    }
+
+    try {
+
+      const user = await auth
+        .newRefreshToken()
+        .generateForRefreshToken( refresh_token )
+
+      return response.status( 201 ).send( { data: user } )
+    } catch (error) {
+
+    }
   }
 
   async logout( { request, response, auth } ) {
