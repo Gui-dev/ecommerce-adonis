@@ -31,6 +31,19 @@ class AuthController {
 
   async login( { request, response, auth } ) {
 
+    const { email, password } = request.all()
+
+    try {
+
+      const data = await auth.withRefreshToken().attempt( email, password )
+
+      return response.send( { data } )
+    } catch (error) {
+
+      return response.status( 401 ).send( {
+        message: 'Erro ao Logar'
+       } )
+    }
   }
 
   async refresh( { request, response, auth } ) {
