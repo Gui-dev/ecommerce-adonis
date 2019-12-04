@@ -17,15 +17,25 @@ class CategoryController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
+   * @param { Object } ctx.pagination
    */
-  async index ({ request, response, view }) {
+  async index ({ request, response, pagination }) {
+
+    const title = request.input( 'title' )
 
     try {
 
-      const categories = await Category.query().paginate()
+      const query = Category.query()
 
-      return response.status( 200 ).send( { data: categories } )
+      if( title ) {
+
+        query.where( 'title', 'LIKE', `%${title}%` )
+      }
+
+      const categories = await query
+        .paginate( pagination.page, pagination.limit )
+
+      return response.status( 200 ).send( categories )
     } catch (error) {
 
       console.log( error )
