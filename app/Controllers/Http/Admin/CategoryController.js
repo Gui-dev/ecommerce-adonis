@@ -83,7 +83,19 @@ class CategoryController {
    * @param {Response} ctx.response
    * @param {View} ctx.view
    */
-  async show ({ params, request, response, view }) {
+  async show ({ params: { id }, request, response}) {
+
+    try {
+
+      const category = await Category.findOrFail( id )
+
+      return response.status( 200 ).send( category )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao listar categoria'
+      } )
+    }
   }
 
   /**
@@ -94,7 +106,22 @@ class CategoryController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async update ({ params, request, response }) {
+  async update ({ params: { id }, request, response }) {
+
+    const { title, description, image_id } = request.all()
+    try {
+
+      const category = await Category.findOrFail( id )
+      category.merge( { title, description, image_id } )
+      await category.save()
+
+      return response.status( 200 ).send( category )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao atualizar categoria'
+      } )
+    }
   }
 
   /**
@@ -105,7 +132,17 @@ class CategoryController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async destroy ({ params, request, response }) {
+  async destroy ({ params: { id }, request, response }) {
+
+    try {
+
+      const category = await Category.findOrFail( id )
+      await category.delete()
+
+      return response.status( 204 ).send()
+    } catch (error) {
+
+    }
   }
 }
 
