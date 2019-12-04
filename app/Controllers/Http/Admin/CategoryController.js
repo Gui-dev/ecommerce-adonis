@@ -4,6 +4,8 @@
 /** @typedef {import('@adonisjs/framework/src/Response')} Response */
 /** @typedef {import('@adonisjs/framework/src/View')} View */
 
+const Category = use( 'App/Models/Category' )
+
 /**
  * Resourceful controller for interacting with categories
  */
@@ -18,6 +20,19 @@ class CategoryController {
    * @param {View} ctx.view
    */
   async index ({ request, response, view }) {
+
+    try {
+
+      const categories = await Category.query().paginate()
+
+      return response.status( 200 ).send( { data: categories } )
+    } catch (error) {
+
+      console.log( error )
+      return response.status( 400 ).json( {
+        message: "Erro ao listar categorias"
+      } )
+    }
   }
 
   /**
