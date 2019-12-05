@@ -51,6 +51,22 @@ class ProductController {
    * @param {Response} ctx.response
    */
   async store ({ request, response }) {
+
+    const { name, description, price, image_id } = request.all()
+
+    try {
+
+      const product = await Product.create( {
+        name, description, price, image_id
+      } )
+
+      return response.status( 200 ).send( product )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao cadastrar o produto'
+      } )
+    }
   }
 
   /**
