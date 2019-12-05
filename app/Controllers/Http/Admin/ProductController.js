@@ -28,7 +28,7 @@ class ProductController {
 
       if( name ) {
 
-        query.where( 'name', 'LIKE', `%%${name}%` )
+        query.where( 'name', 'LIKE', `%${name}%` )
       }
 
       const products = await query.paginate( pagination.page, pagination.limit )
