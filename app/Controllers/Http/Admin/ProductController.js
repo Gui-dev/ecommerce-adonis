@@ -37,7 +37,7 @@ class ProductController {
     } catch (error) {
 
       return response.status( 400 ).send( {
-        message: 'Erro ao listar produtos'
+        message: 'Erro ao listar os produtos'
       } )
     }
   }
@@ -76,9 +76,18 @@ class ProductController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
    */
-  async show ({ params, request, response }) {
+  async show ({ params: { id }, request, response }) {
+
+    try {
+
+      const product = await Product.findOrFail( id )
+      return response.status( 200 ).send( product )
+    } catch (error) {
+      return response.status( 400 ).send( {
+        message: 'Erro ao listar produto'
+      } )
+    }
   }
 
   /**
@@ -89,7 +98,24 @@ class ProductController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async update ({ params, request, response }) {
+  async update ({ params: { id }, request, response }) {
+
+    const { name, description, price, image_id } = request.all()
+
+    try {
+
+      const product = await Product.findOrFail( id )
+
+      product.merge( { name, description, price, image_id } )
+      await product.save()
+
+      return response.status( 200 ).send( product )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao atualizar o produto'
+      } )
+    }
   }
 
   /**
@@ -100,7 +126,20 @@ class ProductController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async destroy ({ params, request, response }) {
+  async destroy ({ params: { id }, request, response }) {
+
+    try {
+
+      const product = await Product.findOrFail( id )
+      await product.delete()
+
+      return response.status( 204 ).send()
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao deletar produto'
+      } )
+    }
   }
 }
 
