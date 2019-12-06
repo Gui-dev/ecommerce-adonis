@@ -4,6 +4,8 @@
 /** @typedef {import('@adonisjs/framework/src/Response')} Response */
 /** @typedef {import('@adonisjs/framework/src/View')} View */
 
+const User = use( 'App/Models/User' )
+
 /**
  * Resourceful controller for interacting with users
  */
@@ -15,21 +17,32 @@ class UserController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
    */
-  async index ({ request, response, view }) {
-  }
+  async index ({ request, response, pagination }) {
 
-  /**
-   * Render a form to be used for creating a new user.
-   * GET users/create
-   *
-   * @param {object} ctx
-   * @param {Request} ctx.request
-   * @param {Response} ctx.response
-   * @param {View} ctx.view
-   */
-  async create ({ request, response, view }) {
+    const name = request.input( 'name' )
+
+    try {
+
+      const query = User.query()
+
+      if( name ) {
+
+        query.where( 'name', 'LIKE', `%${name}%` )
+        query.orWhere( 'surname', 'LIKE', `%${name}%` )
+        query.orWhere( 'email', 'LIKE', `%${name}%` )
+      }
+
+      const user = await query.paginate( pagination.page, pagination.limit )
+
+      return response.status( 200 ).send( user )
+
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao buscar usuário'
+      } )
+    }
   }
 
   /**
@@ -41,6 +54,20 @@ class UserController {
    * @param {Response} ctx.response
    */
   async store ({ request, response }) {
+
+    const userData = request.only( [ 'name', 'surname', 'email', 'password', 'image_id' ] )
+
+    try {
+
+      const user = await User.create( userData )
+
+      return response.status( 201 ).send( user )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Não foi possivel cadastrar esse usuário'
+      } )
+    }
   }
 
   /**
@@ -50,21 +77,20 @@ class UserController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
    */
-  async show ({ params, request, response, view }) {
-  }
+  async show ({ params: { id }, request, response }) {
 
-  /**
-   * Render a form to update an existing user.
-   * GET users/:id/edit
-   *
-   * @param {object} ctx
-   * @param {Request} ctx.request
-   * @param {Response} ctx.response
-   * @param {View} ctx.view
-   */
-  async edit ({ params, request, response, view }) {
+    try {
+
+      const user = await User.findOrFail( id )
+
+      return response.status( 200 ).send( user )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao buscar usuário'
+      } )
+    }
   }
 
   /**
@@ -75,7 +101,23 @@ class UserController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async update ({ params, request, response }) {
+  async update ({ params: { id }, request, response }) {
+
+    const userData = request.only( [ 'name', 'surname', 'email', 'password', 'image_id' ] )
+
+    try {
+
+      const user = await User.findOrFail( id )
+      user.merge( userData )
+      await user.save()
+
+      return response.status( 201 ).send( user )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao atualizar usuário'
+      } )
+    }
   }
 
   /**
@@ -86,7 +128,21 @@ class UserController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async destroy ({ params, request, response }) {
+  async destroy ({ params: { id }, request, response }) {
+
+    try {
+
+      const user = await User.findOrFail( id )
+      await user.delete()
+
+      return response.status( 204 ).send()
+
+    } catch (error) {
+
+      return response.status( 500 ).send( {
+        message: 'Erro ao deletar usuário'
+      } )
+    }
   }
 }
 
