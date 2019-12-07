@@ -4,6 +4,12 @@
 /** @typedef {import('@adonisjs/framework/src/Response')} Response */
 /** @typedef {import('@adonisjs/framework/src/View')} View */
 
+const Image = use( 'App/Models/Image' )
+const Helpers = use( 'Helpers' )
+const fs = use( 'fs' )
+
+const { manageSingleUpload, manageMultipleUploads } = use( 'App/Helpers' )
+
 /**
  * Resourceful controller for interacting with images
  */
@@ -15,21 +21,23 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
    */
-  async index ({ request, response, view }) {
-  }
+  async index ({ request, response, pagination }) {
 
-  /**
-   * Render a form to be used for creating a new image.
-   * GET images/create
-   *
-   * @param {object} ctx
-   * @param {Request} ctx.request
-   * @param {Response} ctx.response
-   * @param {View} ctx.view
-   */
-  async create ({ request, response, view }) {
+    try {
+
+      const images = await Image
+        .query()
+        .orderBy( 'id', 'DESC' )
+        .paginate( pagination.page, pagination.limit )
+
+      return response.status( 200 ).send( images )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao listar as imagens'
+      } )
+    }
   }
 
   /**
@@ -41,6 +49,67 @@ class ImageController {
    * @param {Response} ctx.response
    */
   async store ({ request, response }) {
+
+    try {
+
+      const fileJar = request.file( 'images', {
+        types: [ 'image' ],
+        size: '2mb'
+      } )
+
+      let images = [] // retorna pro usuário
+
+      // caso seja um unico arquivo
+      if( !fileJar.files ) {
+        const file = await manageSingleUpload( fileJar )
+
+        if( file.moded() ) {
+
+          const image = await Image.create( {
+            path: file.fileName,
+            size: file.size,
+            original_name: file.clientName,
+            extension: file.subtype
+          } )
+
+          images.push( image )
+
+          return response.status( 201 ).send( {
+            successes: images,
+            errors: {}
+          } )
+        }
+
+        return response.status( 400 ).send( {
+          message: 'Não foi possível processar está imagem no momento'
+        } )
+      }
+
+      // caso sejam vários uploads de arquivos
+      let files = await manageMultipleUploads( fileJar )
+
+      await Prime.all( files.successes.map( async file => {
+        const image = await Image.create( {
+          path: file.fileName,
+          size: file.size,
+          original_name: file.clientName,
+          extension: filesubtype
+        } )
+
+        images.push( image )
+      } ) )
+
+      return response.status( 201 ).send( {
+        successes: images,
+        errors: files.errors
+      } )
+
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Não foi possível cadastrar a Imagem'
+      } )
+    }
   }
 
   /**
@@ -50,21 +119,20 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
    */
-  async show ({ params, request, response, view }) {
-  }
+  async show ({ params: { id }, request, response }) {
 
-  /**
-   * Render a form to update an existing image.
-   * GET images/:id/edit
-   *
-   * @param {object} ctx
-   * @param {Request} ctx.request
-   * @param {Response} ctx.response
-   * @param {View} ctx.view
-   */
-  async edit ({ params, request, response, view }) {
+    try {
+
+      const image = await Image.findOrFail( id )
+
+      return response.status( 201 ).send( image )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao listar imagem'
+      } )
+    }
   }
 
   /**
@@ -75,7 +143,22 @@ class ImageController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async update ({ params, request, response }) {
+  async update ({ params: { id }, request, response }) {
+
+    const original_name = request.only( [ 'original_name' ] )
+    try {
+
+      const image = await Image.findOrFail( id )
+      image.merge( original_name )
+      await image.save()
+
+      return response.status( 201 ).send( image )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao atualizar nome da imagem'
+      } )
+    }
   }
 
   /**
@@ -86,7 +169,27 @@ class ImageController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async destroy ({ params, request, response }) {
+  async destroy ({ params: { id }, request, response }) {
+
+    try {
+
+      const image = await Image.findOrFail( id )
+
+      let filepath = Helpers.publicPath( `uploads/${image.path}` )
+      await fs.unlink( filepath, err => {
+        if( !err ) {
+          await image.delete()
+        }
+      } )
+
+      return response.status( 204 ).send()
+
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao deletar imagem'
+      } )
+    }
   }
 }
 
