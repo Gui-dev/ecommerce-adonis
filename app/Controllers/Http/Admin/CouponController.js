@@ -4,6 +4,10 @@
 /** @typedef {import('@adonisjs/framework/src/Response')} Response */
 /** @typedef {import('@adonisjs/framework/src/View')} View */
 
+const Coupon = use( 'App/Models/Coupon' )
+const Database = use( 'Database' )
+const CouponService = use( 'App/Services/Coupon/CoupnService' )
+
 /**
  * Resourceful controller for interacting with coupons
  */
@@ -15,21 +19,31 @@ class CouponController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
+   * @param {Object} ctx.pagination
    */
-  async index ({ request, response, view }) {
-  }
+  async index ({ request, response, pagination }) {
 
-  /**
-   * Render a form to be used for creating a new coupon.
-   * GET coupons/create
-   *
-   * @param {object} ctx
-   * @param {Request} ctx.request
-   * @param {Response} ctx.response
-   * @param {View} ctx.view
-   */
-  async create ({ request, response, view }) {
+    const code = request.input( 'code' )
+
+    try {
+
+      const query = await Coupon.query()
+
+      if( code ) {
+
+        query.where( 'code', 'LIKE', `%${code}%` )
+      }
+
+      const coupons = await query.paginate( pagination.page, pagination.limit )
+
+      return response.status( 200 ).send( coupons )
+
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Cupons não foram encontrados'
+      } )
+    }
   }
 
   /**
@@ -41,6 +55,59 @@ class CouponController {
    * @param {Response} ctx.response
    */
   async store ({ request, response }) {
+    /**
+     * 1 - produto: pose ser utilizado apenas em produtos especificos
+     * 2 - clientes: pode ser utilizado apenas por clientes especificos
+     * 3 - clientes e produtos: pode ser utilizado somente em por clientes e produtos especificos
+     * 4 - pode ser utilizado por qualquer cliente em qualquer pedido
+     */
+    const trx = await Database.beginTransaction()
+    const canUseFor = { client: false,  product: false }
+    const couponData = request.only( [ 'code', 'dicount', 'valid_from', 'valid_until', 'quantity', 'type', 'recursive' ] )
+    const { users, products } = request.only( [ 'users', 'products' ] )
+
+    try {
+
+      const coupon = await Coupon.create( { couponData, trx } )
+
+      // starts services layers
+      const service = new CouponService( coupon, trx )
+
+      // insere os relacionamentos no DB
+      if( users && users.length > 0 ) {
+
+        await service.syncUsers( users )
+        canUseFor.client = true
+      }
+
+      if( products && products.length > 0 ) {
+
+        await service.syncProducts( products )
+        canUseFor.product = true
+      }
+
+      if( canUseFor.client && canUseFor.product ) {
+        coupon.can_use_for = 'product_client'
+      } else if( !canUseFor.client && canUseFor.product ) {
+        coupon.can_use_for = 'product'
+      } else if( canUseFor.client && !canUseFor.product ) {
+        coupon.can_use_for = 'client'
+      } else {
+        coupon.can_use_for = 'all'
+      }
+
+      await coupon.save( trx )
+      await trx.commit()
+
+      return response.status( 201 ).send( coupon )
+
+    } catch (error) {
+
+      await trx.rollback()
+      return response.status( 400 ).send( {
+        message: 'Erro ao cadastrar cupom'
+      } )
+    }
   }
 
   /**
@@ -50,21 +117,19 @@ class CouponController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
-   * @param {View} ctx.view
    */
-  async show ({ params, request, response, view }) {
-  }
+  async show ({ params: { id }, request, response }) {
 
-  /**
-   * Render a form to update an existing coupon.
-   * GET coupons/:id/edit
-   *
-   * @param {object} ctx
-   * @param {Request} ctx.request
-   * @param {Response} ctx.response
-   * @param {View} ctx.view
-   */
-  async edit ({ params, request, response, view }) {
+    try {
+
+      const coupon = await Coupon.findOrFail( id )
+      return response.status( 201 ).send( coupon )
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao listar Cupom'
+      } )
+    }
   }
 
   /**
@@ -75,7 +140,50 @@ class CouponController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async update ({ params, request, response }) {
+  async update ({ params: { id }, request, response }) {
+
+    const trx = await Database.beginTransaction()
+    const canUseFor = { client: false,  product: false }
+    const couponData = request.only( [ 'code', 'dicount', 'valid_from', 'valid_until', 'quantity', 'type', 'recursive' ] )
+    const { users, products } = request.only( [ 'users', 'products' ] )
+    try {
+
+      const coupon = await Coupon.findOrFail( id )
+      coupon.merge( couponData )
+
+      const service = new CouponService( coupon, trx )
+
+      if( users && users.length > 0 ) {
+        await service.syncUsers( users )
+        canUseFor.client = true
+      }
+
+      if( products && products.length > 0 ) {
+        await service.syncUsers( products )
+        canUseFor.product = true
+      }
+
+      if( canUseFor.client && canUseFor.product ) {
+        coupon.can_use_for = 'product_client'
+      } else if( !canUseFor.client && canUseFor.product ) {
+        coupon.can_use_for = 'product'
+      } else if( canUseFor.client && !canUseFor.product ) {
+        coupon.can_use_for = 'client'
+      } else {
+        coupon.can_use_for = 'all'
+      }
+
+      await coupon.save( trx )
+      await trx.commit()
+
+      return response.status( 200 ).send( coupon )
+    } catch (error) {
+
+      trx.rollback()
+      return response.status( 400 ).send( {
+        message: 'Erro ao atualizar Cupom'
+      } )
+    }
   }
 
   /**
@@ -86,8 +194,29 @@ class CouponController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    */
-  async destroy ({ params, request, response }) {
+  async destroy ({ params: { id }, request, response }) {
+
+    const trx = await Database.beginTransaction()
+    try {
+
+      const coupon = await Coupon.findOrFail( id )
+
+      await coupon.products().detach( [], trx )
+      await coupon.orders().detach( [], trx )
+      await coupon.users().detach( [], trx )
+      await coupon.delete( trx )
+      await trx.commit()
+
+      return response.status( 204 ).send()
+    } catch (error) {
+
+      await trx.rollback()
+      return response.status( 400 ).send( {
+        message: 'Erro ao deletar Cupom'
+      } )
+    }
   }
+
 }
 
 module.exports = CouponController
