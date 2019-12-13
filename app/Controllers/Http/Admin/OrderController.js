@@ -7,6 +7,8 @@
 const Order = use( 'App/Models/Order' )
 const Database = use( 'Database' )
 const OrderService = use( 'App/Services/Order/OrderService' )
+const Coupon = use( 'App/Models/Coupon' )
+const Discount = use( 'App/Models/Discount' )
 
 /**
  * Resourceful controller for interacting with orders
@@ -168,6 +170,66 @@ class OrderController {
       trx.rollback()
       return response.status( 400 ).send( {
         message: 'Erro ao deletar Order'
+      } )
+    }
+  }
+
+  async applyDiscount( { params: { id }, request, response } ) {
+
+    const { code } = request.all()
+    const discount = {}
+    const info = {}
+
+    try {
+
+      const coupon = await Coupon.findByOrFail( 'code', code.toUpperCase() )
+      const order = await Order.findOrFail( id )
+      const service = new OrderService( order )
+
+      const canAddDiscount = await service.canApllyDiscount( coupon )
+      const orderDiscounts = await order.coupons().getCount()
+
+      const canApplyToOrder = orderDiscounts < 1 || ( orderDiscounts >= 1 && coupon.recursive )
+
+      if( canAddDiscount && canApplyToOrder ) {
+
+        discount = await Discount.findOrCreate( {
+          order_id: order.id,
+          coupon_id: coupon.id
+        } )
+
+        info.message = 'Cupom aplicado com sucesso'
+        info.success = true
+      } else {
+
+        info.message = 'Não foi possível aplicar esse cupom'
+        info.success = false
+      }
+
+      return response.status( 201 ).send( { order, info } )
+
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao aplicar o Cupom'
+      } )
+    }
+  }
+
+  async removeDiscount( { params, request, response } ) {
+
+    const { discount_id } = request.all()
+
+    try {
+
+      const discount = await Discount.findOrFail( discount_id )
+      await discount.delete()
+
+      return response.status( 204 ).send()
+    } catch (error) {
+
+      return response.status( 400 ).send( {
+        message: 'Erro ao deletar Cupom'
       } )
     }
   }
