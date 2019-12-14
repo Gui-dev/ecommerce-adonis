@@ -33,7 +33,13 @@ Route.group( () => {
   Route.resource( 'images', 'ImageController' ).apiOnly()
 
   // User resourece routes
-  Route.resource( 'users', 'UserController' ).apiOnly()
+  Route
+    .resource( 'users', 'UserController' )
+    .apiOnly()
+    .validator( new Map( [
+      [ [ 'users.store' ], [ 'Admin/StoreUser' ] ],
+      [ [ 'users.update' ], [ 'Admin/StoreUser' ] ]
+    ] ) )
 
 } )
   .prefix( 'v1/admin' )
