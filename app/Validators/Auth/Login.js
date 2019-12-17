@@ -5,7 +5,7 @@ class Login {
   get rules () {
     return {
 
-      email: 'required|email|',
+      email: 'required|email',
       password: 'required'
     }
   }
