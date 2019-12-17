@@ -63,7 +63,7 @@ class ImageController {
       if( !fileJar.files ) {
         const file = await manageSingleUpload( fileJar )
 
-        if( file.moded() ) {
+        if( file.moved() ) {
 
           const image = await Image.create( {
             path: file.fileName,
