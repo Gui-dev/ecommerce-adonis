@@ -8,6 +8,7 @@ const Image = use( 'App/Models/Image' )
 const Helpers = use( 'Helpers' )
 const fs = use( 'fs' )
 
+const ImageTransformer = use( 'App/Transformers/Admin/ImageTransformer' )
 const { manageSingleUpload, manageMultipleUploads } = use( 'App/Helpers' )
 
 /**
@@ -21,15 +22,18 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async index ({ request, response, pagination }) {
+  async index ({ request, response, transform, pagination }) {
 
     try {
 
-      const images = await Image
+      let images = await Image
         .query()
         .orderBy( 'id', 'DESC' )
         .paginate( pagination.page, pagination.limit )
+
+      images = await transform.paginate( images, ImageTransformer )
 
       return response.status( 200 ).send( images )
     } catch (error) {
@@ -47,8 +51,9 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async store ({ request, response }) {
+  async store ({ request, response, transform }) {
 
     try {
 
@@ -72,10 +77,12 @@ class ImageController {
             extension: file.subtype
           } )
 
-          images.push( image )
+          const transformedImage = await transform.item( image, ImageTransformer )
+
+          images.push( transformedImage )
 
           return response.status( 201 ).send( {
-            successes: images,
+            successes: transformedImage,
             errors: {}
           } )
         }
@@ -96,11 +103,13 @@ class ImageController {
           extension: filesubtype
         } )
 
-        images.push( image )
+        const transformedImage = await transform.item( image, ImageTransformer )
+
+        images.push( transformedImage )
       } ) )
 
       return response.status( 201 ).send( {
-        successes: images,
+        successes: transformedImage,
         errors: files.errors
       } )
 
@@ -119,12 +128,15 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async show ({ params: { id }, request, response }) {
+  async show ({ params: { id }, request, response, transform }) {
 
     try {
 
-      const image = await Image.findOrFail( id )
+      let image = await Image.findOrFail( id )
+
+      image = await transform.item( image, ImageTransformer )
 
       return response.status( 201 ).send( image )
     } catch (error) {
@@ -142,15 +154,18 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async update ({ params: { id }, request, response }) {
+  async update ({ params: { id }, request, response, transform }) {
 
     const original_name = request.only( [ 'original_name' ] )
     try {
 
-      const image = await Image.findOrFail( id )
+      let image = await Image.findOrFail( id )
       image.merge( original_name )
       await image.save()
+
+      image = await transform.item( image, ImageTransformer )
 
       return response.status( 201 ).send( image )
     } catch (error) {
@@ -168,6 +183,7 @@ class ImageController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   *
    */
   async destroy ({ params: { id }, request, response }) {
 

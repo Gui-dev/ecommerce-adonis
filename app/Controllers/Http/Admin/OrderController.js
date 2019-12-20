@@ -9,6 +9,7 @@ const Database = use( 'Database' )
 const OrderService = use( 'App/Services/Order/OrderService' )
 const Coupon = use( 'App/Models/Coupon' )
 const Discount = use( 'App/Models/Discount' )
+const OrderTransformer = use( 'App/Transformers/Admin/OrderTransformer' )
 
 /**
  * Resourceful controller for interacting with orders
@@ -22,8 +23,9 @@ class OrderController {
    * @param {Request} ctx.request
    * @param {Response} ctx.response
    * @param {Object} ctx.pagination
+   * @param {TransformerWith} ctx.transform
    */
-  async index ({ request, response, pagination }) {
+  async index ({ request, response, pagination, transform }) {
 
     const { status, id } = request.only( [ 'status', 'id' ] )
     try {
@@ -43,7 +45,8 @@ class OrderController {
         query.where( 'id', 'LIKE', `%${id}%` )
       }
 
-      const orders = await query.paginate( pagination.page, pagination.limit )
+      let orders = await query.paginate( pagination.page, pagination.limit )
+      orders = await transform.paginate( orders, OrderTransformer )
 
       return response.status( 201 ).send( orders )
     } catch (error) {
@@ -61,15 +64,16 @@ class OrderController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async store ({ request, response }) {
+  async store ({ request, response, transform }) {
 
     const trx = await Database.beginTransaction()
     const { user_id, items, status } = request.all()
 
     try {
 
-      const order = await Order.create( { user_id, items, status }, trx )
+      let order = await Order.create( { user_id, items, status }, trx )
       const service = new OrderService( order, trx )
 
       if( items && item.length > 0 ) {
@@ -77,6 +81,8 @@ class OrderController {
       }
 
       await trx.commit()
+
+      order = await transform.item( order, OrderTransformer  )
 
       return response.status( 201 ).send( order )
 
@@ -97,12 +103,14 @@ class OrderController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async show ({ params: { id }, request, response }) {
+  async show ({ params: { id }, request, response, transform }) {
 
     try {
 
-      const order = await Order.findOrFail( id )
+      let order = await Order.findOrFail( id )
+      order = await transform.item( order, OrderTransformer )
       return response.status( 201 ).send( order )
     } catch (error) {
 
@@ -119,20 +127,23 @@ class OrderController {
    * @param {object} ctx
    * @param {Request} ctx.request
    * @param {Response} ctx.response
+   * @param {TransformerWith} ctx.transform
    */
-  async update ({ params: { id }, request, response }) {
+  async update ({ params: { id }, request, response, transform }) {
 
     const trx = await Database.beginTransaction()
     const { user_id, items, status } = request.all()
     try {
 
-      const order = await Order.findOrFail( id )
+      let order = await Order.findOrFail( id )
       const service = new OrderService( order, trx )
 
       order.merge( { user_id, status } )
       await service.updateItems( items )
       await order.save( trx )
       await trx.commit()
+
+      order = await transform.item( order, OrderTransformer )
 
       return response.status( 200 ).send( order )
 
