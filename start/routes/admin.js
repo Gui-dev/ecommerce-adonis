@@ -41,6 +41,10 @@ Route.group( () => {
       [ [ 'users.update' ], [ 'Admin/StoreUser' ] ]
     ] ) )
 
+  Route
+    .get( 'dashboard', 'DashboardController.index' )
+    .as( 'dashboard' )
+
 } )
   .prefix( 'v1/admin' )
   .namespace( 'Admin' )
